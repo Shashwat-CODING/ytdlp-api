@@ -1,0 +1,118 @@
+name: Fetch YouTube Channel Metadata
+
+on:
+  schedule:
+    # Run once a day at midnight UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    # Allow manual triggering of the workflow
+
+permissions:
+  contents: write  # Allows pushing changes to the repo
+
+jobs:
+  fetch-metadata:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+      
+      - name: Create script directory
+        run: mkdir -p scripts
+      
+      - name: Create fetch script
+        run: |
+          cat > scripts/fetch_channel_metadata.py << 'EOF'
+          #!/usr/bin/env python3
+          """
+          Script to fetch YouTube channel metadata and save it to channels.json
+          """
+          
+          import json
+          import requests
+          import time
+          import sys
+          
+          # List of channel IDs to fetch metadata for
+          CHANNEL_IDS = [
+              'UCyBzV_g6Vfv5GM3aMQb3Y_A',
+              'UCrB8j1YCbuYhIcImwNkJgCg',
+              'UCPGNioeYrJq4nyAt-DVIHZg',
+              'UCEEi1lDCkKi1ukmTAgc9-zA',
+              'UCVIq229U5A54UVzHQJqZCPQ',
+              'UCcKMjICfQPjiVMpqS-yF7hA',
+              'UCWcQCJHYOK2ZZRA2Sym0mOw',
+              'UCn372MiubHTkPFwxKVv45LQ',
+              'UCUF0EGa7_yM4TXQl4LYt-YA',
+              'UCRidj8Tvrnf5jeIwzFDj0FQ'
+          ]
+          
+          # Base URL for the API
+          BASE_URL = "https://backendmix-emergeny.vercel.app"
+          
+          def fetch_channel_metadata(channel_id):
+              """Fetch metadata for a specific YouTube channel using the Podcast Heaven API."""
+              url = f"{BASE_URL}/channel/{channel_id}"
+              
+              try:
+                  response = requests.get(url, timeout=30)
+                  response.raise_for_status()
+                  return response.json()
+              except requests.exceptions.RequestException as e:
+                  print(f"Error fetching metadata for channel {channel_id}: {e}")
+                  return None
+          
+          def main():
+              """Main function to fetch metadata for all channels and save to channels.json"""
+              all_channels = {}
+              
+              for channel_id in CHANNEL_IDS:
+                  print(f"Fetching metadata for channel {channel_id}...")
+                  metadata = fetch_channel_metadata(channel_id)
+                  
+                  if metadata:
+                      all_channels[channel_id] = metadata
+                      # Be nice to the API and avoid rate limiting
+                      time.sleep(1)
+                  else:
+                      print(f"Failed to fetch metadata for channel {channel_id}")
+              
+              # Check if we got data for at least one channel
+              if not all_channels:
+                  print("Failed to fetch metadata for any channels. Exiting.")
+                  sys.exit(1)
+              
+              # Write all channel metadata to a single JSON file
+              with open('channels.json', 'w', encoding='utf-8') as f:
+                  json.dump(all_channels, f, indent=2, ensure_ascii=False)
+              
+              print(f"Successfully saved metadata for {len(all_channels)} channels to channels.json")
+          
+          if __name__ == "__main__":
+              main()
+          EOF
+      
+      - name: Make script executable
+        run: chmod +x scripts/fetch_channel_metadata.py
+      
+      - name: Fetch channel metadata
+        run: python scripts/fetch_channel_metadata.py
+      
+      - name: Commit and push changes if needed
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add channels.json
+          git diff --quiet && git diff --staged --quiet || git commit -m "Update channels.json with latest metadata"
+          git push
