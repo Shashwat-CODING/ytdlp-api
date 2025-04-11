@@ -45,7 +45,7 @@ jobs:
           
           // API endpoints
           const MP3_API = "https://backendmix.vercel.app/mp3";
-          const FALLBACK_API = "https://ytdlp-api-ox2d.onrender.com/rv";
+          const FALLBACK_API = "https://ytdp-api-ox2d.onrender.com/rv";
           const CHANNEL_API = "https://backendmix-emergeny.vercel.app/list";
           
           // Configuration
