@@ -3,6 +3,9 @@ from flask_cors import CORS
 import yt_dlp
 import os
 import logging
+import threading
+import time
+import requests
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -150,10 +153,29 @@ def index():
         }
     })
 
+# Function to ping the server every 14 minutes to prevent Render from spinning down
+def keep_alive():
+    app_url = "https://ytdlp-api-ox2d.onrender.com/"
+    logger.info(f"Starting self-ping service to {app_url}")
+    
+    while True:
+        try:
+            time.sleep(14 * 60)  # 14 minutes
+            logger.info("Sending self-ping request")
+            requests.get(app_url)
+        except Exception as e:
+            logger.error(f"Self-ping error: {str(e)}")
+
 if __name__ == '__main__':
     # Check if cookies.txt exists, if not create an empty file
     if not os.path.exists('cookies.txt'):
         open('cookies.txt', 'w').close()
         print("Created empty cookies.txt file")
+    
+    # Start the keep-alive thread
+    keep_alive_thread = threading.Thread(target=keep_alive)
+    keep_alive_thread.daemon = True
+    keep_alive_thread.start()
+    logger.info("Started keep-alive thread to prevent Render from spinning down")
         
     app.run(host='0.0.0.0', port=5000, debug=True)
