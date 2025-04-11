@@ -36,7 +36,7 @@ jobs:
           cat > scripts/fetch_channel_metadata.py << 'EOF'
           #!/usr/bin/env python3
           """
-          Script to fetch YouTube channel metadata and save it to channels.json
+          Script to fetch only basic YouTube channel metadata and save it to channels.json
           """
           
           import json
@@ -62,13 +62,26 @@ jobs:
           BASE_URL = "https://backendmix-emergeny.vercel.app"
           
           def fetch_channel_metadata(channel_id):
-              """Fetch metadata for a specific YouTube channel using the Podcast Heaven API."""
+              """Fetch only the basic metadata for a specific YouTube channel."""
               url = f"{BASE_URL}/channel/{channel_id}"
               
               try:
                   response = requests.get(url, timeout=30)
                   response.raise_for_status()
-                  return response.json()
+                  data = response.json()
+                  
+                  # Extract only basic channel metadata, excluding video lists
+                  basic_metadata = {
+                      "name": data.get("name", ""),
+                      "avatarUrl": data.get("avatarUrl", ""),
+                      "bannerUrl": data.get("bannerUrl", ""),
+                      "description": data.get("description", ""),
+                      "subscriberCount": data.get("subscriberCount", 0),
+                      "verified": data.get("verified", False),
+                      "id": channel_id
+                  }
+                  
+                  return basic_metadata
               except requests.exceptions.RequestException as e:
                   print(f"Error fetching metadata for channel {channel_id}: {e}")
                   return None
