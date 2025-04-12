@@ -47,6 +47,7 @@ jobs:
           
           // API endpoints
           const MP3_API = "https://backendmix.vercel.app/mp3";
+          const FALLBACK_API = "https://ytdlp-api-ox2d.onrender.com/rv";
           const CHANNEL_API = "https://backendmix-emergeny.vercel.app/list";
           
           // Configuration
@@ -303,6 +304,33 @@ jobs:
           }
           
           /**
+           * Try to download using fallback API
+           * @param {string} videoId YouTube video ID
+           * @returns {Promise<{url: string, title: string}>} Download URL and title
+           */
+          async function tryFallbackApi(videoId) {
+              console.log(`🔄 Trying fallback API for ${videoId}...`);
+              
+              try {
+                  const fallbackResponse = await axios.get(`${FALLBACK_API}/${videoId}`, {
+                      timeout: 120000 // 2 minute timeout since this API can be slow (15s-1min)
+                  });
+                  
+                  if (!fallbackResponse.data || !fallbackResponse.data.url) {
+                      throw new Error("No URL in fallback API response");
+                  }
+                  
+                  return {
+                      url: fallbackResponse.data.url,
+                      filename: fallbackResponse.data.title || `Video ${videoId}`
+                  };
+              } catch (err) {
+                  console.error(`❌ Fallback API failed: ${err.message}`);
+                  throw err; // Re-throw to be handled by caller
+              }
+          }
+          
+          /**
            * Check if we've exceeded the maximum runtime
            * @returns {boolean} True if we should stop processing
            */
@@ -372,6 +400,7 @@ jobs:
           
                   let processedCount = 0;
                   let errorCount = 0;
+                  let fallbackCount = 0;
                   let timeoutReached = false;
                   
                   // Track downloaded files for batch upload
@@ -399,6 +428,7 @@ jobs:
           
                       let downloadSuccess = false;
                       let videoTitle = `Video ${videoId}`;
+                      let usedFallback = false;
                       
                       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
                           try {
@@ -408,19 +438,40 @@ jobs:
           
                               let url, titleFromApi;
                               
-                              try {
-                                  const downloadResponse = await axios.get(`${MP3_API}/${videoId}`, {
-                                      timeout: 30000 // 30 second timeout
-                                  });
-                                  url = downloadResponse.data.url;
-                                  titleFromApi = downloadResponse.data.filename;
-                                  
-                                  if (!url) {
-                                      throw new Error("No download URL returned from API");
+                              // Try primary API first
+                              if (!usedFallback && attempt <= MAX_RETRIES - 1) {
+                                  try {
+                                      const downloadResponse = await axios.get(`${MP3_API}/${videoId}`, {
+                                          timeout: 30000 // 30 second timeout
+                                      });
+                                      url = downloadResponse.data.url;
+                                      titleFromApi = downloadResponse.data.filename;
+                                      
+                                      if (!url) {
+                                          throw new Error("No download URL returned from primary API");
+                                      }
+                                  } catch (primaryApiErr) {
+                                      console.error(`⚠️ Primary API failed: ${primaryApiErr.message}`);
+                                      
+                                      // If we're on the last retry attempt, switch to fallback
+                                      if (attempt === MAX_RETRIES - 1) {
+                                          usedFallback = true;
+                                          const fallbackResult = await tryFallbackApi(videoId);
+                                          url = fallbackResult.url;
+                                          titleFromApi = fallbackResult.filename;
+                                          console.log(`🔀 Switched to fallback API for ${videoId}`);
+                                          fallbackCount++;
+                                      } else {
+                                          throw primaryApiErr; // Re-throw to retry with primary API
+                                      }
                                   }
-                              } catch (apiErr) {
-                                  console.error(`⚠️ API failed: ${apiErr.message}`);
-                                  throw apiErr; // Re-throw to be caught by outer catch
+                              } else if (usedFallback || attempt === MAX_RETRIES) {
+                                  // On the last attempt or if we've already decided to use fallback
+                                  usedFallback = true;
+                                  const fallbackResult = await tryFallbackApi(videoId);
+                                  url = fallbackResult.url;
+                                  titleFromApi = fallbackResult.filename;
+                                  if (!usedFallback) fallbackCount++; // Only increment if first time using fallback
                               }
           
                               // Clean up filename to use as title (remove .mp3 extension if present)
@@ -453,6 +504,9 @@ jobs:
           
                               console.log(`✅ Downloaded ${filename} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
                               console.log(`📝 Title: ${videoTitle}`);
+                              if (usedFallback) {
+                                  console.log(`ℹ️ Used fallback API for this download`);
+                              }
           
                               downloadedFiles.push({
                                   filePath: filePath,
@@ -493,6 +547,7 @@ jobs:
                   
                   console.log(`${'='.repeat(50)}`);
                   console.log(`📥 Download phase complete: ${downloadedFiles.length} files downloaded, ${failedIds.length} failed`);
+                  console.log(`🔀 Used fallback API for ${fallbackCount} downloads`);
                   if (timeoutReached) {
                       console.log(`⏱️ Note: Time limit reached, ${videosToProcess.length - downloadedFiles.length - failedIds.length} videos not processed in this run`);
                   }
@@ -576,6 +631,7 @@ jobs:
                   console.log(`✅ Successfully processed: ${processedCount} videos`);
                   console.log(`⏭️ Skipped (already processed): ${skippedCount} videos`);
                   console.log(`❌ Failed: ${errorCount} videos`);
+                  console.log(`🔀 Used fallback API: ${fallbackCount} times`);
                   if (timeoutReached) {
                       console.log(`⏱️ Time limit reached: ${videosToProcess.length - (processedCount + errorCount)} videos not processed in this run`);
                   }
@@ -586,6 +642,7 @@ jobs:
                       processed: processedCount,
                       skipped: skippedCount,
                       errors: errorCount,
+                      fallbackUsed: fallbackCount,
                       timeoutReached: timeoutReached,
                       remainingVideos: timeoutReached ? videosToProcess.length - (processedCount + errorCount) : 0
                   };
@@ -597,6 +654,7 @@ jobs:
                       processed: 0,
                       skipped: 0,
                       errors: 1,
+                      fallbackUsed: 0,
                       error: error.message
                   };
               }
@@ -626,6 +684,7 @@ jobs:
                   console.log(`✅ Successfully processed: ${result.processed} videos`);
                   console.log(`⏭️ Skipped (already processed): ${result.skipped} videos`);
                   console.log(`❌ Failed: ${result.errors} videos`);
+                  console.log(`🔀 Used fallback API: ${result.fallbackUsed || 0} times`);
                   if (result.timeoutReached) {
                       console.log(`⏱️ Time limit reached: Approximately ${result.remainingVideos} videos left for next run`);
                   }
