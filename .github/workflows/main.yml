@@ -1,5 +1,7 @@
 name: Process YouTube Channel Audio
 on:
+  schedule:
+    - cron: '0 */3 * * *'  # Runs every 3 hours (00:00, 03:00, 06:00, etc. UTC)
   workflow_dispatch:  # Allows manual trigger
     inputs:
       channelId:
