@@ -47,15 +47,16 @@ jobs:
           # List of channel IDs to fetch metadata for
           CHANNEL_IDS = [
               'UCyBzV_g6Vfv5GM3aMQb3Y_A',
-              'UCrB8j1YCbuYhIcImwNkJgCg',
-              'UCPGNioeYrJq4nyAt-DVIHZg',
-              'UCEEi1lDCkKi1ukmTAgc9-zA',
-              'UCVIq229U5A54UVzHQJqZCPQ',
-              'UCcKMjICfQPjiVMpqS-yF7hA',
-              'UCWcQCJHYOK2ZZRA2Sym0mOw',
-              'UCn372MiubHTkPFwxKVv45LQ',
-              'UCUF0EGa7_yM4TXQl4LYt-YA',
-              'UCRidj8Tvrnf5jeIwzFDj0FQ'
+    'UCrB8j1YCbuYhIcImwNkJgCg',
+    'UCPGNioeYrJq4nyAt-DVIHZg',
+    'UCEEi1lDCkKi1ukmTAgc9-zA',
+    'UCVIq229U5A54UVzHQJqZCPQ',
+    'UCcKMjICfQPjiVMpqS-yF7hA',
+    'UCWcQCJHYOK2ZZRA2Sym0mOw',
+    'UCn372MiubHTkPFwxKVv45LQ',
+    'UCUF0EGa7_yM4TXQl4LYt-YA',
+    'UCRidj8Tvrnf5jeIwzFDj0FQ',
+    'UCz67TNWBqU38S8VRvjDO2wg'
           ]
           
           # Base URL for the API
