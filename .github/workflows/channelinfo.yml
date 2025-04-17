@@ -46,6 +46,7 @@ jobs:
           
           # List of channel IDs to fetch metadata for
           CHANNEL_IDS = [
+               'UCHa1_v_jRPdJFdU9tmOwxDA',
                'UC0XWC2_UZMkXPGn4bj0R2Uw',
                'UCpGhKw1m80zRsS7xUvUruaQ',
                'UC2OE2tbj4O3wo14M-tspGzw',
